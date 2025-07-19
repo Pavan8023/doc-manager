@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Student Document Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4361ee',
+                        secondary: '#3f37c9',
+                        accent: '#4895ef',
+                        light: '#f8f9fa',
+                        dark: '#212529',
+                        success: '#4cc9f0',
+                        card: '#7209b7',
+                        login: '#3a0ca3',
+                        danger: '#e63946'
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'bounce-slow': 'bounce 3s infinite',
+                        'fade-in': 'fadeIn 0.5s ease-in',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-in': 'slideIn 0.8s ease-out',
+                        'shake': 'shake 0.5s'
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-15px)' },
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' },
+                        },
+                        slideIn: {
+                            '0%': { 
+                                transform: 'translateY(100px)',
+                                opacity: '0'
+                            },
+                            '100%': { 
+                                transform: 'translateY(0)',
+                                opacity: '1'
+                            }
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '10%, 30%, 50%, 70%, 90%': { transform: 'translateX(-10px)' },
+                            '20%, 40%, 60%, 80%': { transform: 'translateX(10px)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .card {
+            transition: all 0.3s ease;
+            transform-origin: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        
+        .card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(67, 97, 238, 0.2);
+        }
+        
+        .pdf-viewer-container {
+            transition: all 0.4s ease;
+        }
+        
+        .hero-pattern {
+            background: radial-gradient(circle, rgba(67,97,238,0.1) 0%, rgba(255,255,255,0) 70%);
+        }
+        
+        .grid-item {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s forwards;
+        }
+        
+        .document-thumbnail {
+            background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%);
+        }
+        
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .nav-link {
+            position: relative;
+            padding-bottom: 5px;
+        }
+        
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 3px;
+            background: #4361ee;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .nav-link.active::after,
+        .nav-link:hover::after {
+            width: 100%;
+        }
+        
+        .floating {
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        .floating-2 {
+            animation: float 10s ease-in-out infinite;
+            animation-delay: 1s;
+        }
+        
+        .floating-3 {
+            animation: float 12s ease-in-out infinite;
+            animation-delay: 2s;
+        }
+        
+        .section {
+            min-height: calc(100vh - 80px);
+        }
+        
+        .doc-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 30px;
+        }
+        
+        .login-container {
+            background: linear-gradient(135deg, #3a0ca3 0%, #4361ee 100%);
+        }
+        
+        .login-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .form-input:focus {
+            box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.3);
+        }
+        
+        .doc-viewer {
+            height: 85vh;
+        }
+        
+        .security-badge {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border-radius: 20px;
+            padding: 6px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+            display: flex;
+            align-items: center;
+        }
+        
+        .lock-icon {
+            background: linear-gradient(135deg, #ff6b6b 0%, #e63946 100%);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            animation: pulse-slow 2s infinite;
+        }
+        
+        .attempts-counter {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            border-radius: 20px;
+            padding: 6px 15px;
+            font-size: 14px;
+            font-weight: 600;
+            color: white;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+    <!-- Login Modal -->
+    <div id="login-modal" class="fixed inset-0 flex items-center justify-center p-4 z-50 login-container">
+        <div class="security-badge">
+            <i class="fas fa-shield-alt mr-2"></i> AES-256 Encrypted
+        </div>
+        
+        <div class="login-card rounded-2xl p-8 max-w-md w-full shadow-2xl animate-slide-in relative">
+            <div class="absolute top-5 left-5">
+                <div class="lock-icon">
+                    <i class="fas fa-lock text-white"></i>
+                </div>
+            </div>
+            
+            <div id="lockout-message" class="hidden bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
+                <div class="flex items-center">
+                    <i class="fas fa-ban text-red-500 text-xl mr-3"></i>
+                    <div>
+                        <h3 class="font-bold text-red-500">Account Locked</h3>
+                        <p class="text-red-400 text-sm mt-1">Too many failed attempts. Please try again in <span id="lockout-time">24 hours</span>.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-white">Secure Student Portal</h2>
+                <p class="text-white/80 mt-2">Enter your credentials to access documents</p>
+            </div>
+            
+            <form id="login-form" class="space-y-6">
+                <div>
+                    <label class="block text-white text-sm font-medium mb-2" for="username">Username</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        class="form-input w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white transition"
+                        placeholder="Enter your username"
+                        value="pavan515"
+                    >
+                </div>
+                
+                <div>
+                    <label class="block text-white text-sm font-medium mb-2" for="password">Password</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        class="form-input w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-white transition"
+                        placeholder="Enter your password"
+                        value="Pavan515###"
+                    >
+                </div>
+                
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="remember"
+                            class="h-4 w-4 text-primary rounded focus:ring-primary"
+                        >
+                        <label for="remember" class="ml-2 text-sm text-white">Remember me</label>
+                    </div>
+                    
+                    <a href="#" class="text-sm text-white hover:text-primary transition">Forgot password?</a>
+                </div>
+                
+                <div id="error-message" class="hidden bg-red-500/20 border border-red-500 rounded-lg p-3 text-red-400 text-sm">
+                    <i class="fas fa-exclamation-circle mr-2"></i>
+                    <span id="error-text"></span>
+                </div>
+                
+                <div>
+                    <button 
+                        type="submit"
+                        id="login-btn"
+                        class="w-full bg-white text-primary font-bold py-3 px-4 rounded-lg hover:bg-gray-100 transition transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-primary/50"
+                    >
+                        <i class="fas fa-lock mr-2"></i> Sign In Securely
+                    </button>
+                </div>
+            </form>
+            
+            <div class="attempts-counter hidden" id="attempts-counter">
+                <i class="fas fa-shield-alt mr-2"></i>
+                <span id="attempts-text">0/3 attempts remaining</span>
+            </div>
+            
+            <div class="mt-6 text-center">
+                <p class="text-white/70 text-sm">Protected by AES-256 encryption</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation (Initially Hidden) -->
+    <nav id="main-nav" class="bg-white shadow-lg py-4 sticky top-0 z-50 hidden">
+        <div class="container mx-auto px-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <i class="fas fa-graduation-cap text-primary text-2xl mr-2"></i>
+                <h1 class="text-xl font-bold text-primary">Secure<span class="text-secondary">DocHub</span></h1>
+            </div>
+            <div class="hidden md:flex space-x-8">
+                <a href="#" class="nav-link font-medium text-gray-700 hover:text-primary active" data-section="abroad">Abroad Docs</a>
+                <a href="#" class="nav-link font-medium text-gray-700 hover:text-primary" data-section="loan">Loan Docs</a>
+                <a href="#" class="nav-link font-medium text-gray-700 hover:text-primary" data-section="visa">Visa Docs</a>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="bg-primary hover:bg-secondary text-white font-medium py-2 px-4 rounded-lg transition-all">
+                    <i class="fas fa-user-graduate mr-2"></i>Welcome, Pavan
+                </button>
+                <button id="logout-btn" class="text-gray-600 hover:text-primary transition">
+                    <i class="fas fa-sign-out-alt text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="hero" class="section py-12 px-4 hero-pattern flex items-center justify-center">
+        <div class="container mx-auto max-w-6xl">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-10 md:mb-0">
+                    <h1 class="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+                        Secure <span class="text-primary">Document Management</span> for Students
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-8">
+                        Military-grade encryption for your study abroad documents, 
+                        loan papers, and visa materials.
+                    </p>
+                    <div class="flex space-x-4">
+                        <button id="get-started-btn" class="bg-primary hover:bg-secondary text-white font-medium py-3 px-8 rounded-full transition-all transform hover:scale-105 shadow-lg flex items-center">
+                            Get Started <i class="fas fa-arrow-right ml-3"></i>
+                        </button>
+                        <button class="border-2 border-primary text-primary font-medium py-3 px-8 rounded-full transition-all hover:bg-primary hover:text-white flex items-center">
+                            <i class="fas fa-shield-alt mr-3"></i> Security Info
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="md:w-1/2 flex justify-center">
+                    <div class="relative">
+                        <div class="absolute top-0 left-0 w-64 h-64 bg-primary rounded-full opacity-10 animate-pulse"></div>
+                        <div class="absolute top-10 -left-10 w-48 h-48 bg-secondary rounded-full opacity-10 animate-pulse"></div>
+                        <div class="relative z-10">
+                            <div class="bg-white p-6 rounded-2xl shadow-xl w-80 transform rotate-3 floating">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="font-bold text-gray-700">Secure Storage</h3>
+                                    <span class="text-xs bg-accent text-white px-2 py-1 rounded">AES-256</span>
+                                </div>
+                                <div class="bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-dashed rounded-xl w-full h-48 mb-4 flex items-center justify-center">
+                                    <i class="fas fa-lock text-5xl text-primary"></i>
+                                </div>
+                                <div class="text-center">
+                                    <div class="inline-flex space-x-2">
+                                        <div class="w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
+                                        <div class="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>
+                                        <div class="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white p-6 rounded-2xl shadow-xl w-80 absolute -bottom-10 -right-10 transform -rotate-6 floating-2">
+                                <div class="flex items-center mb-4">
+                                    <div class="bg-gradient-to-br from-purple-100 to-indigo-100 border-2 border-dashed rounded-xl w-16 h-16 flex items-center justify-center">
+                                        <i class="fas fa-file-shield text-xl text-purple-500"></i>
+                                    </div>
+                                    <div class="ml-4">
+                                        <h3 class="font-bold text-gray-700 text-sm">Document Security</h3>
+                                        <p class="text-xs text-gray-500">Encrypted at rest & in transit</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between text-xs">
+                                    <span class="bg-green-100 text-green-800 px-2 py-1 rounded">Active</span>
+                                    <span class="text-gray-500">256-bit</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-20 text-center">
+                <div class="inline-flex flex-col items-center">
+                    <p class="text-gray-500 animate-pulse-slow mb-2">
+                        <i class="fas fa-lock mr-2"></i> Military-grade AES-256 encryption
+                    </p>
+                    <div class="flex space-x-4">
+                        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center animate-bounce-slow">
+                            <i class="fas fa-user-shield text-primary"></i>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center animate-bounce-slow" style="animation-delay: 0.2s">
+                            <i class="fas fa-file-contract text-secondary"></i>
+                        </div>
+                        <div class="w-12 h-12 rounded-full bg-success/10 flex items-center justify-center animate-bounce-slow" style="animation-delay: 0.4s">
+                            <i class="fas fa-shield-alt text-success"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Document Grid Sections (Initially Hidden) -->
+    <section id="abroad" class="section hidden py-16 px-4 bg-gradient-to-br from-blue-50 to-indigo-50">
+        <div class="container mx-auto max-w-6xl">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold mb-2">Study Abroad Documents</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">All your important documents for studying abroad in one organized place</p>
+            </div>
+            <div id="abroad-grid" class="doc-grid">
+                <!-- Documents will be loaded here via JS -->
+            </div>
+        </div>
+    </section>
+
+    <section id="loan" class="section hidden py-16 px-4 bg-gradient-to-br from-purple-50 to-indigo-50">
+        <div class="container mx-auto max-w-6xl">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold mb-2">Loan Documents</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">Manage and access all your education loan paperwork</p>
+            </div>
+            <div id="loan-grid" class="doc-grid">
+                <!-- Documents will be loaded here via JS -->
+            </div>
+        </div>
+    </section>
+
+    <section id="visa" class="section hidden py-16 px-4 bg-gradient-to-br from-green-50 to-blue-50">
+        <div class="container mx-auto max-w-6xl">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold mb-2">Visa Documents</h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">All visa-related documents organized for easy access</p>
+            </div>
+            <div id="visa-grid" class="doc-grid">
+                <!-- Documents will be loaded here via JS -->
+            </div>
+        </div>
+    </section>
+
+    <!-- PDF Viewer Container -->
+    <div id="pdf-viewer-container" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 id="pdf-title" class="font-bold text-lg">Secure Document Viewer</h3>
+                <button id="close-viewer" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-2xl"></i>
+                </button>
+            </div>
+            <div class="flex-1 p-4 overflow-auto">
+                <div class="bg-gray-100 rounded-lg w-full doc-viewer flex items-center justify-center">
+                    <iframe id="pdf-viewer-frame" class="w-full h-full" frameborder="0"></iframe>
+                </div>
+            </div>
+            <div class="p-4 border-t flex justify-between items-center">
+                <div class="text-sm text-gray-500">
+                    <i class="fas fa-lock mr-2"></i> 
+                    This document is encrypted at rest and in transit
+                </div>
+                <a id="download-link" class="bg-primary hover:bg-secondary text-white font-medium py-2 px-6 rounded-lg transition-all inline-flex items-center">
+                    <i class="fas fa-download mr-2"></i> Download PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Security configuration
+        const SECRET_KEY = "P@v@nS3cur3D0cHubK3y!2023";
+        const MAX_ATTEMPTS = 3;
+        const LOCKOUT_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+        
+        // Document data with file paths
+        const documents = {
+            abroad: [
+                { title: "Internship Certificate", file: "/assets/docs/abroad/04_INTERNSHIP CERTIFICATE_Pavan Anandrao Patil copy.pdf" },
+                { title: "5th Semester Digital", file: "/assets/docs/abroad/5th sem digi.pdf" },
+                { title: "5th Semester Result", file: "/assets/docs/abroad/5th sem result.pdf" },
+                { title: "6th Semester Result", file: "/assets/docs/abroad/6th sem result.pdf" },
+                { title: "ITR 24-25", file: "/assets/docs/abroad/Financial statement 24-25.pdf" },
+                { title: "ITR 25-26", file: "/assets/docs/abroad/Financial statement - 25-26.pdf" },
+                { title: "2023-24 Acknowledgement", file: "/assets/docs/abroad/23-24 ack.pdf" },
+                { title: "2024-25 Acknowledgement", file: "/assets/docs/abroad/24-25 ack.pdf" },
+                { title: "Additional ITR 24-25", file: "/assets/docs/abroad/Additional ITR 24-25.pdf" },
+                { title: "Additional ITR 25-26", file: "/assets/docs/abroad/Additional ITR 25-26.pdf" },
+                { title: "All Semester Marksheets", file: "/assets/docs/abroad/All sem marksheets.pdf" },
+                { title: "Audit Trail", file: "/assets/docs/abroad/Audit Trail.pdf" },
+                { title: "Brother Affidavit", file: "/assets/docs/abroad/Brother affidavit.pdf" },
+                { title: "Brother Payslips", file: "/assets/docs/abroad/brother payslips.pdf" },
+                { title: "Brother Stamped CDC", file: "/assets/docs/abroad/Brother stamped cdc.pdf" },
+                { title: "Brother Stamped Passport", file: "/assets/docs/abroad/Brother stamped passport.pdf" },
+                { title: "Canara ePassbook", file: "/assets/docs/abroad/canara_epassbook_2025-05-15 175941.648354.pdf" },
+                { title: "DBS Receipt", file: "/assets/docs/abroad/DBS_receipt_500.pdf" },
+                { title: "Total DBS Fee Receipt", file: "/assets/docs/abroad/Pavan_DBS_Receipt.pdf" },
+                { title: "DBS Postgraduate Programmes", file: "/assets/docs/abroad/dbs-postgraduate-programmes.pdf" },
+                { title: "DET Score Card", file: "/assets/docs/abroad/DET Score Card.pdf" },
+                { title: "Attested 6th sem", file: "/assets/docs/abroad/6th attested.pdf" },
+                { title: "Letter of Recommendation", file: "/assets/docs/abroad/LOR.pdf" },
+                { title: "Mother Bank Statement", file: "/assets/docs/abroad/Mother_bank_statement.pdf" },
+                { title: "Net Worth Certificate", file: "/assets/docs/abroad/PAVAN PATIL NET WORTH CERTIFICATE.pdf" },
+                { title: "Hackathon Certificate", file: "/assets/docs/abroad/Pavan Patil.pdf" },
+                { title: "10th Marksheet", file: "/assets/docs/abroad/pavan_10th.pdf" },
+                { title: "12th Marksheet", file: "/assets/docs/abroad/pavan_12th.pdf" },
+                { title: "Aadhar Card", file: "/assets/docs/abroad/Pavan_adhar.pdf" },
+                { title: "Visa SOP", file: "/assets/docs/abroad/PAVAN VISA SOP.pdf" },
+                { title: "PAN Card", file: "/assets/docs/abroad/pavan_pancard.pdf" },
+                { title: "DBS Confirmation Letter", file: "/assets/docs/abroad/Confirm offer letter.pdf" },
+                { title: "Provisional Certificate", file: "/assets/docs/abroad/Pavan_provisional.pdf" },
+                { title: "Resume", file: "/assets/docs/abroad/pavan_resume.pdf" },
+                { title: "PCC", file: "/assets/docs/abroad/PCC.pdf" },
+                { title: "Provisional Offer Letter", file: "/assets/docs/abroad/Provisional offer letter.pdf" },
+                { title: "RCU 1st Sem Result", file: "/assets/docs/abroad/RCU result of 1st sem.pdf" },
+                { title: "RCU 2nd Sem Result", file: "/assets/docs/abroad/RCU result of 2nd sem.pdf" },
+                { title: "RCU 3rd Sem Result", file: "/assets/docs/abroad/RCU result of 3rd sem.pdf" },
+                { title: "RCU 4th Sem Result", file: "/assets/docs/abroad/RCU result of 4th sem.pdf" },
+                { title: "Sanction Details", file: "/assets/docs/abroad/SANCTIONDETAILS_signed.pdf" },
+                { title: "Student Consent Form", file: "/assets/docs/abroad/Student Consent Form blank (1).docx" },
+                { title: "Web3 Hackathon", file: "/assets/docs/abroad/Web3hack.pdf" }
+            ],
+            loan: [
+                { title: "10th Marksheet", file: "/assets/docs/loans/10th marksheet.pdf" },
+                { title: "12th Marksheet", file: "/assets/docs/loans/12th marksheet.pdf" },
+                { title: "All Semester Marksheets", file: "/assets/docs/loans/All_sem_marksheets.pdf" },
+                { title: "Brother Aadhar Card", file: "/assets/docs/loans/Brother_adharcard.pdf" },
+                { title: "Brothers Bank Statements", file: "/assets/docs/loans/Brothers bank statements.pdf" },
+                { title: "Brothers Contract", file: "/assets/docs/loans/Brothers contract.pdf" },
+                { title: "Brothers ID", file: "/assets/docs/loans/Brothers id.pdf" },
+                { title: "Brothers PAN", file: "/assets/docs/loans/Brothers pan.pdf" },
+                { title: "Canara ePassbook", file: "/assets/docs/loans/canara_epassbook_2025-05-15 175941.648354.pdf" },
+                { title: "Father's Aadhar", file: "/assets/docs/loans/Father’s adhar.pdf" },
+                { title: "Father's PAN", file: "/assets/docs/loans/Father’s pan.pdf" },
+                { title: "Financial Statement 23-24", file: "/assets/docs/loans/Financial statement 23-24.pdf" },
+                { title: "Financial Statement 24-25", file: "/assets/docs/loans/Financial statement - 24-25.pdf" },
+                { title: "HSBC Bank", file: "/assets/docs/loans/HSBC bank.pdf" },
+                { title: "HSBC Form", file: "/assets/docs/loans/HSBC FORM.pdf" },
+                { title: "Mother's Aadhar", file: "/assets/docs/loans/Mother’s Adhar.pdf" },
+                { title: "Mother's PAN", file: "/assets/docs/loans/Mother’s pan.pdf" },
+                { title: "Passport", file: "/assets/docs/loans/Passport.pdf" },
+                { title: "Pavan Aadhar", file: "/assets/docs/loans/Pavan Adhar.pdf" },
+                { title: "Pavan PAN", file: "/assets/docs/loans/Pavan pan.pdf" },
+                { title: "Pavan Passport", file: "/assets/docs/loans/Pavan passport.pdf" },
+                { title: "Pay Slip", file: "/assets/docs/loans/Pay slip1.pdf" }
+            ],
+            visa: [
+                { title: "Internship Certificate", file: "/assets/docs/visa/04_INTERNSHIP CERTIFICATE_Pavan Anandrao Patil.pdf" },
+                { title: "10th Marksheet", file: "/assets/docs/visa/10th.pdf" },
+                { title: "12th Marksheet", file: "/assets/docs/visa/12th.pdf" },
+                { title: "2023-24 Acknowledgement", file: "/assets/docs/visa/23-24 ack.pdf" },
+                { title: "2024-25 Acknowledgement", file: "/assets/docs/visa/24-25 ack.pdf" },
+                { title: "All Semester Marksheets", file: "/assets/docs/visa/All_sem_marksheets.pdf" },
+                { title: "Brother Passport", file: "/assets/docs/visa/Brother_passport.pdf" },
+                { title: "Brother Affidavit", file: "/assets/docs/visa/Brother affidavit.pdf" },
+                { title: "Brother Payslips", file: "/assets/docs/visa/brother payslips.pdf" },
+                { title: "Brother Stamped Passport", file: "/assets/docs/visa/Brother stamped passport.pdf" },
+                { title: "Brother Aadhar Card", file: "/assets/docs/visa/Brother_adharcard.pdf" },
+                { title: "Brother CDC", file: "/assets/docs/visa/Brother_cdc.pdf" },
+                { title: "Brother Merchant Navy ID", file: "/assets/docs/visa/Brother_merchant_navy_id.pdf" },
+                { title: "Brother PAN Card", file: "/assets/docs/visa/Brother_pancard.pdf" },
+                { title: "Brothers Bank Statements", file: "/assets/docs/visa/Brothers bank statements.pdf" },
+                { title: "DET Score Card", file: "/assets/docs/visa/DET Score Card.pdf" },
+                { title: "Financial Statement 23-24", file: "/assets/docs/visa/Financial statement 23-24.pdf" },
+                { title: "Financial Statement 24-25", file: "/assets/docs/visa/Financial statement - 24-25.pdf" },
+                { title: "Mother Bank Statement", file: "/assets/docs/visa/Mother_bank_statement.pdf" },
+                { title: "Passport", file: "/assets/docs/visa/Passport.pdf" },
+                { title: "Net Worth Certificate", file: "/assets/docs/visa/PAVAN PATIL NET WORTH CERTIFICATE.pdf" },
+                { title: "Pavan CV", file: "/assets/docs/visa/Pavan_CV.pdf" },
+                { title: "DBS Receipt", file: "/assets/docs/visa/Pavan_DBS_Receipt.pdf" },
+                { title: "Offer Letter", file: "/assets/docs/visa/Pavan_offer_letter.pdf" },
+                { title: "Payment to DRS", file: "/assets/docs/visa/Payment to DRS.pdf" },
+                { title: "PCC", file: "/assets/docs/visa/PCC.pdf" },
+                { title: "Unconditional Offer", file: "/assets/docs/visa/unconditional offer.pdf" }
+            ]
+        };
+
+        // DOM elements
+        const loginModal = document.getElementById('login-modal');
+        const loginForm = document.getElementById('login-form');
+        const getStartedBtn = document.getElementById('get-started-btn');
+        const mainNav = document.getElementById('main-nav');
+        const heroSection = document.getElementById('hero');
+        const errorMessage = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const lockoutMessage = document.getElementById('lockout-message');
+        const lockoutTime = document.getElementById('lockout-time');
+        const attemptsCounter = document.getElementById('attempts-counter');
+        const attemptsText = document.getElementById('attempts-text');
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        
+        const sections = {
+            abroad: document.getElementById('abroad'),
+            loan: document.getElementById('loan'),
+            visa: document.getElementById('visa')
+        };
+
+        const grids = {
+            abroad: document.getElementById('abroad-grid'),
+            loan: document.getElementById('loan-grid'),
+            visa: document.getElementById('visa-grid')
+        };
+
+        const pdfViewerContainer = document.getElementById('pdf-viewer-container');
+        const pdfViewerFrame = document.getElementById('pdf-viewer-frame');
+        const pdfTitle = document.getElementById('pdf-title');
+        const downloadLink = document.getElementById('download-link');
+        const closeViewer = document.getElementById('close-viewer');
+
+        // Initialize the app
+        function init() {
+            // Initially hide the login modal
+            loginModal.classList.add('hidden');
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Check if user is already logged in
+            const sessionToken = localStorage.getItem('sessionToken');
+            if (sessionToken) {
+                try {
+                    const decryptedSession = decryptData(sessionToken);
+                    if (decryptedSession && decryptedSession.username === 'pavan515') {
+                        handleSuccessfulLogin();
+                    }
+                } catch (e) {
+                    console.error("Session decryption failed:", e);
+                }
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Get Started button
+            getStartedBtn.addEventListener('click', () => {
+                heroSection.classList.add('hidden');
+                loginModal.classList.remove('hidden');
+                updateLoginUI();
+            });
+            
+            // Login form submission
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                
+                attemptLogin(username, password);
+            });
+            
+            // Logout button
+            logoutBtn.addEventListener('click', () => {
+                localStorage.removeItem('sessionToken');
+                location.reload();
+            });
+            
+            // View button event delegation
+            document.addEventListener('click', (e) => {
+                if (e.target.classList.contains('view-btn') || e.target.closest('.view-btn')) {
+                    const btn = e.target.closest('.view-btn');
+                    const file = btn.getAttribute('data-file');
+                    const title = btn.getAttribute('data-title');
+                    
+                    openPDFViewer(file, title);
+                }
+            });
+            
+            // Close viewer button
+            closeViewer.addEventListener('click', () => {
+                pdfViewerContainer.classList.add('hidden');
+                pdfViewerFrame.src = '';
+            });
+            
+            // Close viewer when clicking outside
+            pdfViewerContainer.addEventListener('click', (e) => {
+                if (e.target === pdfViewerContainer) {
+                    pdfViewerContainer.classList.add('hidden');
+                    pdfViewerFrame.src = '';
+                }
+            });
+            
+            // Navigation links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    
+                    // Remove active class from all links
+                    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+                    
+                    // Add active class to clicked link
+                    link.classList.add('active');
+                    
+                    // Get target section
+                    const targetSection = link.getAttribute('data-section');
+                    
+                    // Hide all sections
+                    Object.values(sections).forEach(section => {
+                        section.classList.add('hidden');
+                    });
+                    
+                    // Show target section
+                    sections[targetSection].classList.remove('hidden');
+                });
+            });
+        }
+
+        // Update login UI based on stored attempts
+        function updateLoginUI() {
+            const attempts = parseInt(localStorage.getItem('loginAttempts') || 0);
+            const lockoutUntil = localStorage.getItem('lockoutUntil');
+            
+            // Reset UI elements
+            errorMessage.classList.add('hidden');
+            lockoutMessage.classList.add('hidden');
+            attemptsCounter.classList.add('hidden');
+            
+            // Check if account is locked
+            if (lockoutUntil && Date.now() < lockoutUntil) {
+                lockoutMessage.classList.remove('hidden');
+                loginBtn.disabled = true;
+                loginBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                const remainingHours = Math.ceil((lockoutUntil - Date.now()) / (60 * 60 * 1000));
+                lockoutTime.textContent = `${remainingHours} hours`;
+                return;
+            }
+            
+            // Show attempts counter if there are failed attempts
+            if (attempts > 0) {
+                attemptsCounter.classList.remove('hidden');
+                const remaining = MAX_ATTEMPTS - attempts;
+                attemptsText.textContent = `${remaining}/3 attempts remaining`;
+            }
+        }
+
+        // Attempt login with security features
+        function attemptLogin(username, password) {
+            // Check if account is locked
+            const lockoutUntil = localStorage.getItem('lockoutUntil');
+            if (lockoutUntil && Date.now() < lockoutUntil) {
+                updateLoginUI();
+                return;
+            }
+            
+            // Get current attempts
+            let attempts = parseInt(localStorage.getItem('loginAttempts') || 0);
+            
+            // Validate credentials
+            if (username === 'pavan515' && password === 'Pavan515###') {
+                // Successful login
+                handleSuccessfulLogin();
+                
+                // Reset attempts
+                localStorage.removeItem('loginAttempts');
+                localStorage.removeItem('lockoutUntil');
+            } else {
+                // Failed login
+                attempts++;
+                localStorage.setItem('loginAttempts', attempts);
+                
+                // Shake animation for error
+                loginForm.classList.add('animate-shake');
+                setTimeout(() => {
+                    loginForm.classList.remove('animate-shake');
+                }, 500);
+                
+                // Show error message
+                errorText.textContent = `Invalid credentials. ${MAX_ATTEMPTS - attempts} attempts remaining.`;
+                errorMessage.classList.remove('hidden');
+                
+                // Check if account should be locked
+                if (attempts >= MAX_ATTEMPTS) {
+                    const lockoutTime = Date.now() + LOCKOUT_DURATION;
+                    localStorage.setItem('lockoutUntil', lockoutTime);
+                    errorMessage.classList.add('hidden');
+                    lockoutMessage.classList.remove('hidden');
+                    loginBtn.disabled = true;
+                    loginBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    
+                    const remainingHours = Math.ceil(LOCKOUT_DURATION / (60 * 60 * 1000));
+                    lockoutTime.textContent = `${remainingHours} hours`;
+                } else {
+                    // Update attempts counter
+                    attemptsCounter.classList.remove('hidden');
+                    const remaining = MAX_ATTEMPTS - attempts;
+                    attemptsText.textContent = `${remaining}/3 attempts remaining`;
+                }
+            }
+        }
+
+        // Handle successful login
+        function handleSuccessfulLogin() {
+            // Create session token
+            const sessionData = {
+                username: 'pavan515',
+                timestamp: Date.now(),
+                expires: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+            };
+            
+            const encryptedSession = encryptData(sessionData);
+            localStorage.setItem('sessionToken', encryptedSession);
+            
+            // Hide login modal
+            loginModal.classList.add('hidden');
+            
+            // Show navigation and abroad documents
+            mainNav.classList.remove('hidden');
+            sections.abroad.classList.remove('hidden');
+            
+            // Generate document grids
+            generateGrids();
+        }
+
+        // Generate document cards for each category
+        function generateGrids() {
+            // Generate abroad docs grid
+            documents.abroad.forEach((doc, index) => {
+                grids.abroad.appendChild(createDocumentCard(doc, index));
+            });
+            
+            // Generate loan docs grid
+            documents.loan.forEach((doc, index) => {
+                grids.loan.appendChild(createDocumentCard(doc, index));
+            });
+            
+            // Generate visa docs grid
+            documents.visa.forEach((doc, index) => {
+                grids.visa.appendChild(createDocumentCard(doc, index));
+            });
+        }
+
+        // Create a document card element
+        function createDocumentCard(doc, index) {
+            const card = document.createElement('div');
+            card.className = `card grid-item`;
+            card.style.animationDelay = `${index * 0.1}s`;
+            
+            const fileName = doc.file.split('/').pop();
+            const fileSize = (Math.random() * 2 + 0.5).toFixed(1); // Random file size
+            
+            card.innerHTML = `
+                <div class="h-48 document-thumbnail flex items-center justify-center relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent z-10"></div>
+                    <div class="relative z-20 text-center p-4">
+                        <i class="fas fa-file-pdf text-5xl text-white opacity-80"></i>
+                        <h3 class="text-white font-bold text-xl mt-3">${doc.title}</h3>
+                    </div>
+                </div>
+                <div class="p-5">
+                    <div class="flex justify-between items-center mb-4">
+                        <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">${fileName.substring(fileName.length - 3).toUpperCase()}</span>
+                        <span class="text-gray-500 text-sm">${fileSize} MB</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <button class="view-btn bg-primary hover:bg-secondary text-white px-4 py-2 rounded-lg transition-colors flex items-center" data-file="${doc.file}" data-title="${doc.title}">
+                            <i class="fas fa-eye mr-2"></i> View
+                        </button>
+                        <a href="${doc.file}" download="${fileName}" class="download-btn bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-lg transition-colors flex items-center">
+                            <i class="fas fa-download mr-2"></i> Download
+                        </a>
+                    </div>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        // Open PDF viewer
+        function openPDFViewer(file, title) {
+            // Set PDF title
+            pdfTitle.textContent = title;
+            
+            // Set PDF source
+            pdfViewerFrame.src = file;
+            
+            // Set download link
+            const fileName = file.split('/').pop();
+            downloadLink.href = file;
+            downloadLink.download = fileName;
+            
+            // Show viewer
+            pdfViewerContainer.classList.remove('hidden');
+        }
+
+        // Encryption function using AES
+        function encryptData(data) {
+            const jsonData = JSON.stringify(data);
+            return CryptoJS.AES.encrypt(jsonData, SECRET_KEY).toString();
+        }
+
+        // Decryption function using AES
+        function decryptData(encryptedData) {
+            const bytes = CryptoJS.AES.decrypt(encryptedData, SECRET_KEY);
+            const decryptedJson = bytes.toString(CryptoJS.enc.Utf8);
+            return JSON.parse(decryptedJson);
+        }
+
+        // Initialize the app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
